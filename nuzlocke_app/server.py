@@ -26,6 +26,7 @@ DEFAULT_DATA_ROOT = Path(os.environ.get(
     str(Path(__file__).resolve().parent.parent / ".nuzlocke_data"),
 ))
 MAX_UPLOAD_BYTES = 1024 * 1024
+EPHEMERAL_STORAGE = os.environ.get("NUZLOCKE_EPHEMERAL_STORAGE") == "1"
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
@@ -195,6 +196,10 @@ class NuzlockeRequestHandler(BaseHTTPRequestHandler):
                 history = repository.get_run_history(run_id)
             payload = build_dashboard_payload(state, history)
             payload["run_id"] = run_id
+            payload["hosting"] = {
+                "storage": "ephemeral" if EPHEMERAL_STORAGE else "persistent",
+                "warning": "This free preview can reset accounts and progress after a server restart." if EPHEMERAL_STORAGE else None,
+            }
             payload["run_history"] = (
                 build_run_history(repository.list_snapshots(run_id))
                 if repository is not None else build_run_history([])

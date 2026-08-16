@@ -574,6 +574,7 @@ async function inspectSave() {
       ["Public username", `@${result.sharing.username}`],
       ["Private password", "Saved only as a secure one-way hash. Keep your original password safe."],
       ["For friends", "Give them only your username or copy the viewer link."],
+      ...(result.hosting?.storage === "ephemeral" ? [["Free preview", "This deployment uses temporary storage. A server restart can erase this run and its history."]] : []),
     ]);
   } catch (error) {
     const connectionFailure = error instanceof TypeError && /fetch/i.test(error.message);

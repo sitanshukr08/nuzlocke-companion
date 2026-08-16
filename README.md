@@ -22,15 +22,19 @@ new username and password.
 
 ## Public deployment
 
-The included `render.yaml` defines a single-instance Python web service with a persistent disk.
-Persistence is required: an ephemeral filesystem would lose accounts, snapshots, manual
-encounters, and snapshot history whenever the service restarts.
+`render.yaml` defines a free Render preview. Its filesystem is ephemeral, so accounts,
+snapshots, manual encounters, and snapshot history can be lost whenever Render restarts the
+service. It is suitable only for a public UI preview.
+
+`render-persistent.yaml` is the paid SQLite deployment configuration. It defines a
+single-instance Python web service with a persistent disk, which preserves all run data across
+restarts and deploys. Rename it to `render.yaml` when moving to that option.
 
 The service reads these environment variables:
 
 - `HOST` (production value `0.0.0.0`)
 - `PORT` (provided by the hosting platform)
-- `NUZLOCKE_DATA_ROOT` (persistent mount path, `/var/data` in the Blueprint)
+- `NUZLOCKE_DATA_ROOT` (`/tmp/nuzlocke-data` for the free preview; `/var/data` for persistent SQLite)
 
 `GET /healthz` is the deployment health check. Never commit `.nuzlocke_data` or emulator save
 files; both are excluded by `.gitignore`.

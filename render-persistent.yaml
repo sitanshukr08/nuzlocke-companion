@@ -2,7 +2,7 @@ services:
   - type: web
     name: nuzlocke-companion
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: python -m compileall -q gen1_save_parser nuzlocke_app
     startCommand: python -m nuzlocke_app.server
     healthCheckPath: /healthz
@@ -10,6 +10,8 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: NUZLOCKE_DATA_ROOT
-        value: /tmp/nuzlocke-data
-      - key: NUZLOCKE_EPHEMERAL_STORAGE
-        value: "1"
+        value: /var/data
+    disk:
+      name: nuzlocke-data
+      mountPath: /var/data
+      sizeGB: 1
