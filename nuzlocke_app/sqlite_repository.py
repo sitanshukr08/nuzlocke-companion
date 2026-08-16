@@ -207,23 +207,38 @@ class SQLiteSnapshotRepository:
                     pass
             db.execute("INSERT INTO metadata(key,value) VALUES('legacy_json_import_v1',?)", (_iso_utc(None),))
 
+    @staticmethod
+    def _register_profile_db(db: sqlite3.Connection, profile: RunProfile) -> None:
+        """Register a profile using the caller's transaction.
+
+        Keeping this inside the authentication transaction is important: opening a
+        second connection here used to leave a race where two first-time uploads
+        could both observe an unclaimed run and one caller would receive a session
+        for a username that was never stored.
+        """
+        row = db.execute("SELECT player_display_name,game_version FROM runs WHERE run_id=?", (profile.run_id,)).fetchone()
+        if row:
+            if row["player_display_name"] != profile.player_display_name or row["game_version"] != profile.game_version.value:
+                raise ValueError(f"Run profile {profile.run_id!r} already exists with different data")
+            return
+        db.execute(
+            "INSERT INTO runs(run_id,player_display_name,game_version,created_at) VALUES(?,?,?,?)",
+            (profile.run_id, profile.player_display_name, profile.game_version.value, _iso_utc(None)),
+        )
+
     def register_profile(self, profile: RunProfile) -> None:
         with self._lock, self._connection() as db:
-            row = db.execute("SELECT player_display_name,game_version FROM runs WHERE run_id=?", (profile.run_id,)).fetchone()
-            if row:
-                if row["player_display_name"] != profile.player_display_name or row["game_version"] != profile.game_version.value:
-                    raise ValueError(f"Run profile {profile.run_id!r} already exists with different data")
-                return
-            db.execute(
-                "INSERT INTO runs(run_id,player_display_name,game_version,created_at) VALUES(?,?,?,?)",
-                (profile.run_id, profile.player_display_name, profile.game_version.value, _iso_utc(None)),
-            )
+            self._register_profile_db(db, profile)
 
     def authenticate_or_claim(self, profile: RunProfile, username_value: str, password: str) -> AccountAccess:
         username = normalize_username(username_value)
         _validate_password(password)
         with self._lock, self._connection() as db:
-            self.register_profile(profile)
+            # Serialize account claims across repository instances/processes.
+            # Without an immediate write lock, concurrent first uploads could
+            # both see username=NULL before either UPDATE committed.
+            db.execute("BEGIN IMMEDIATE")
+            self._register_profile_db(db, profile)
             row = db.execute("SELECT username,password_salt,password_hash FROM runs WHERE run_id=?", (profile.run_id,)).fetchone()
             if row is None:
                 raise ValueError("run profile disappeared during authentication")

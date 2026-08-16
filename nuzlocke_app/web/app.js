@@ -366,9 +366,13 @@ function renderInventory(data) {
   renderSavedList("bagInventory", data.inventory.bag);
   renderSavedList("pcInventory", data.inventory.pc);
   const world = $("worldItemList"); clear(world);
-  const groups = [{map_name: data.location.name, items: data.items_here}, ...data.areas];
+  const groups = [{map_id: data.location.map_id, map_name: data.location.name, items: data.items_here}, ...data.areas.filter(area => area.map_id !== data.location.map_id)];
   let count = 0;
+  const seenItems = new Set();
   groups.forEach(group => group.items.forEach(item => {
+    const itemKey = `${group.map_id}:${item.x}:${item.y}:${item.item_id}:${item.hidden ? "hidden" : "visible"}`;
+    if (seenItems.has(itemKey)) return;
+    seenItems.add(itemKey);
     count += 1;
     const status = item.collected ? "collected" : item.access_status;
     const row = element("div", `world-item-row ${status}`);
@@ -495,7 +499,12 @@ function renderChecks(data) {
 function renderDashboard(data) {
   dashboard = data;
   document.title = `Nuzlocke Companion — ${data.trainer.name}`;
-  $("versionChip").textContent = `POKÉMON ${data.trainer.version.toUpperCase()}`;
+  // The selected version is part of the server-validated dashboard payload.
+  // Keep a defensive fallback for older shared snapshots that predate the
+  // nested trainer.version field, so a Red load cannot silently fall back to
+  // the Blue upload-form default.
+  const version = data.trainer?.version || data.game_version || $("gameVersion").value || "unknown";
+  $("versionChip").textContent = `POKÉMON ${String(version).toUpperCase()}`;
   $("runName").textContent = `${data.trainer.name}'S RUN`;
   $("locationName").textContent = data.location.name.toUpperCase();
   $("coordinates").textContent = `(${data.location.x}, ${data.location.y})`;
@@ -566,6 +575,16 @@ async function viewSharedRun() {
 
 $("inspectBtn").addEventListener("click", inspectSave);
 $("viewRunBtn").addEventListener("click", viewSharedRun);
+$("saveFile").addEventListener("change", event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const name = file.name.toLowerCase();
+  const hintedVersion = /(^|[^a-z])red([^a-z]|$)/.test(name) ? "red" : /(^|[^a-z])blue([^a-z]|$)/.test(name) ? "blue" : null;
+  if (hintedVersion) {
+    $("gameVersion").value = hintedVersion;
+    $("uploadStatus").textContent = `Filename suggests Pokémon ${hintedVersion.toUpperCase()}; verify GAME VERSION before inspecting.`;
+  }
+});
 $("viewerUsername").addEventListener("input", event => { event.target.value = event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""); });
 $("viewerUsername").addEventListener("keydown", event => { if (event.key === "Enter") viewSharedRun(); });
 $("copyShareBtn").addEventListener("click", async () => {

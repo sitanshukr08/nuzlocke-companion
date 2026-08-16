@@ -196,10 +196,16 @@ def build_location_guidance(
     world = world or Gen1WorldDatabase()
     for record in history.encounters:
         validate_encounter_record(record, state.game_version, ruleset=ruleset, world=world)
-    nearby_targets = [(state.current_map_id, None)] + [
-        (connection["to_map_id"], connection["direction"])
-        for connection in world.connected_maps(state.current_map_id)
-    ]
+    nearby_targets = []
+    seen_map_ids: set[int] = set()
+    for map_id, direction in [
+        (state.current_map_id, None),
+        *[(connection["to_map_id"], connection["direction"])
+          for connection in world.connected_maps(state.current_map_id)],
+    ]:
+        if map_id not in seen_map_ids:
+            nearby_targets.append((map_id, direction))
+            seen_map_ids.add(map_id)
     areas = []
     notifications = []
     automatic_defeated = world.defeated_trainer_ids(state, state.game_version)

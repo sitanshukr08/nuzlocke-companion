@@ -19,6 +19,14 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class DashboardPayloadTests(unittest.TestCase):
+    def test_dashboard_preserves_declared_red_version(self) -> None:
+        state = parse_save_bytes(
+            (FIXTURES / "pokemon_blue.sav").read_bytes(),
+            expected_version=GameVersion.RED,
+        )
+        self.assertTrue(state.is_valid)
+        self.assertEqual(build_dashboard_payload(state)["trainer"]["version"], "red")
+
     def test_cerulean_map_uses_exact_save_tile_coordinates(self) -> None:
         state = parse_save_bytes(
             (FIXTURES / "pokemon_blue.sav").read_bytes(),
@@ -67,12 +75,31 @@ class DashboardPayloadTests(unittest.TestCase):
             [("Town Map", 1), ("Poké Ball", 4), ("Potion", 6), ("Antidote", 1)],
         )
         self.assertEqual(payload["inventory"]["pc"], [])
+        self.assertEqual(
+            len({area["map_id"] for area in payload["areas"]}),
+            len(payload["areas"]),
+        )
         self.assertEqual(payload["boxes"]["box_count"], 12)
         self.assertEqual(payload["boxes"]["entries"][0]["status"], "current_cache")
         self.assertTrue(all(
             box["status"] == "uninitialized" for box in payload["boxes"]["entries"][1:]
         ))
         self.assertNotIn("EVENT_GOT_TM42", payload["completed_story_events"])
+
+    def test_current_map_is_not_repeated_as_a_nearby_item_area(self) -> None:
+        state = parse_save_bytes(
+            (FIXTURES / "pokemon_blue.sav").read_bytes(),
+            expected_version=GameVersion.BLUE,
+        )
+        state = deepcopy(state)
+        state.current_map_id = 0x0F
+        state.location_id = "route_4"
+        state.location_name = "Route 4"
+        state.player_x, state.player_y = 5, 5
+        payload = build_dashboard_payload(state)
+        area_map_ids = [area["map_id"] for area in payload["areas"]]
+        self.assertEqual(len(area_map_ids), len(set(area_map_ids)))
+        self.assertTrue(payload["items_here"])
         json.dumps(payload)
 
     def test_manual_encounter_history_is_projected_for_the_active_ui(self) -> None:
@@ -182,6 +209,8 @@ class DashboardServerTests(unittest.TestCase):
             self.assertEqual((response.status, response.headers.get_content_type()), (200, "image/png"))
         with urlopen(f"{self.base_url}/assets/item-ball.png", timeout=3) as response:
             self.assertEqual((response.status, response.headers.get_content_type()), (200, "image/png"))
+        app_js = (Path(__file__).parents[1] / "nuzlocke_app" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('data.trainer?.version || data.game_version', app_js)
         with urlopen(f"{self.base_url}/assets/maps/cerulean-city-rby.png", timeout=3) as response:
             self.assertEqual((response.status, response.headers.get_content_type()), (200, "image/png"))
             self.assertGreater(int(response.headers.get("Content-Length", "0")), 40_000)

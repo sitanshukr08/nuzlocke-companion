@@ -50,6 +50,32 @@ class SQLiteRepositoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already taken"):
             self.repository.authenticate_or_claim(other, "flamer", "password two")
 
+    def test_concurrent_first_account_claim_has_one_owner(self) -> None:
+        """A racing first upload must not issue a phantom username session."""
+        import queue
+
+        other_repository = SQLiteSnapshotRepository(self.temporary.name)
+        results: queue.Queue[tuple[str, object]] = queue.Queue()
+
+        def claim(repository: SQLiteSnapshotRepository, username: str) -> None:
+            try:
+                results.put(("ok", repository.authenticate_or_claim(self.profile, username, "password one")))
+            except Exception as exc:  # noqa: BLE001 - assertions inspect the concrete failure below
+                results.put(("error", exc))
+
+        first = threading.Thread(target=claim, args=(self.repository, "first_owner"))
+        second = threading.Thread(target=claim, args=(other_repository, "second_owner"))
+        first.start()
+        second.start()
+        first.join(timeout=5)
+        second.join(timeout=5)
+        outcomes = [results.get(timeout=1), results.get(timeout=1)]
+        self.assertEqual(sum(kind == "ok" for kind, _ in outcomes), 1)
+        self.assertIn(self.repository.username_for_run(self.profile.run_id), {"first_owner", "second_owner"})
+        errors = [value for kind, value in outcomes if kind == "error"]
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], PermissionError)
+
     def test_legacy_json_snapshots_are_imported_once(self) -> None:
         root = Path(self.temporary.name) / "legacy"
         legacy = FileSnapshotRepository(root)
