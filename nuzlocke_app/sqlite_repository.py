@@ -25,6 +25,7 @@ from .progress import (
     _iso_utc,
     _snapshot_identity_is_valid,
     create_snapshot,
+    merge_encounter_history_into_dashboard,
     progress_summary,
 )
 
@@ -314,6 +315,25 @@ class SQLiteSnapshotRepository:
             return dashboard
         except (json.JSONDecodeError, TypeError) as exc:
             raise RepositoryCorruptionError(f"Shared view for {username!r} is corrupt: {exc}") from exc
+
+    def refresh_shared_encounter_dashboard(self, run_id: str) -> None:
+        with self._lock, self._connection() as db:
+            row = db.execute(
+                "SELECT snapshot_id,dashboard_json FROM shared_dashboards WHERE run_id=?", (run_id,)
+            ).fetchone()
+            if row is None:
+                return
+            try:
+                dashboard = json.loads(row["dashboard_json"])
+                if not isinstance(dashboard, dict):
+                    return
+                merge_encounter_history_into_dashboard(dashboard, self.get_run_history(run_id))
+                db.execute(
+                    "UPDATE shared_dashboards SET dashboard_json=?,published_at=? WHERE run_id=?",
+                    (json.dumps(dashboard, ensure_ascii=False), _iso_utc(None), run_id),
+                )
+            except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                raise RepositoryCorruptionError(f"Shared view for run {run_id!r} is corrupt: {exc}") from exc
 
     def append_snapshot(self, snapshot: ProgressSnapshot) -> None:
         if snapshot.schema_version != SCHEMA_VERSION or not _snapshot_identity_is_valid(snapshot):

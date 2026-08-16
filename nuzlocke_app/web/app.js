@@ -587,11 +587,34 @@ $("saveFile").addEventListener("change", event => {
 });
 $("viewerUsername").addEventListener("input", event => { event.target.value = event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""); });
 $("viewerUsername").addEventListener("keydown", event => { if (event.key === "Enter") viewSharedRun(); });
+async function copyText(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  // Clipboard API is unavailable on plain HTTP and older browsers. Keep the
+  // share action usable for local deployments with a temporary, selected
+  // textarea fallback.
+  const input = element("textarea", "clipboard-fallback");
+  input.value = value;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.opacity = "0";
+  document.body.append(input);
+  input.select();
+  const copied = document.execCommand("copy");
+  input.remove();
+  if (!copied) throw new Error("Clipboard access is unavailable. Copy the viewer URL from the address bar.");
+}
 $("copyShareBtn").addEventListener("click", async () => {
   const path = dashboard?.sharing?.viewer_path || `/?user=${dashboard?.sharing?.username || ""}`;
-  await navigator.clipboard.writeText(new URL(path, location.origin).href);
-  $("copyShareBtn").textContent = "COPIED";
-  setTimeout(() => { $("copyShareBtn").textContent = "COPY VIEWER LINK"; }, 1400);
+  try {
+    await copyText(new URL(path, location.origin).href);
+    $("copyShareBtn").textContent = "COPIED";
+    setTimeout(() => { $("copyShareBtn").textContent = "COPY VIEWER LINK"; }, 1400);
+  } catch (error) {
+    openDialog("Copy unavailable", [error.message]);
+  }
 });
 $("areaSelect").addEventListener("change", event => renderArea(Number(event.target.value)));
 $("historyArea").addEventListener("change", populateEncounterForm);

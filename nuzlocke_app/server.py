@@ -253,6 +253,9 @@ class NuzlockeRequestHandler(BaseHTTPRequestHandler):
                 notes=str(data["notes"]) if data.get("notes") else None,
             )
             event_id = repository.append_encounter_event(run_id, record)
+            # Manual history is separate from save snapshots; keep the
+            # read-only friend view in sync immediately after a write.
+            repository.refresh_shared_encounter_dashboard(run_id)
             self._json(201, {"event_id": event_id, "run_id": run_id, "status": "recorded"})
         except PermissionError as exc:
             self._json(403, {"error": "owner_authorization_required", "message": str(exc)})

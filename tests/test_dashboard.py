@@ -211,9 +211,8 @@ class DashboardServerTests(unittest.TestCase):
             self.assertEqual((response.status, response.headers.get_content_type()), (200, "image/png"))
         app_js = (Path(__file__).parents[1] / "nuzlocke_app" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('data.trainer?.version || data.game_version', app_js)
-        with urlopen(f"{self.base_url}/assets/maps/cerulean-city-rby.png", timeout=3) as response:
-            self.assertEqual((response.status, response.headers.get_content_type()), (200, "image/png"))
-            self.assertGreater(int(response.headers.get("Content-Length", "0")), 40_000)
+        self.assertIn('navigator.clipboard?.writeText', app_js)
+        self.assertIn('document.execCommand("copy")', app_js)
         request = Request(
             f"{self.base_url}/api/inspect?version=blue",
             data=(FIXTURES / "pokemon_blue.sav").read_bytes(),

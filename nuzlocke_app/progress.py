@@ -71,6 +71,52 @@ class ShareAccess:
     issued_owner_key: str | None = None
 
 
+def merge_encounter_history_into_dashboard(dashboard: dict[str, object], history: object) -> dict[str, object]:
+    """Refresh the mutable encounter projection without re-parsing the save.
+
+    Manual encounters are stored separately from immutable save snapshots.  A
+    shared dashboard therefore needs this small projection update immediately
+    after an encounter event, otherwise viewers see stale history until the
+    owner uploads another save.
+    """
+    encounters = getattr(history, "encounters", ())
+    catalog_by_area = {
+        str(area.get("area_id")): area
+        for area in dashboard.get("encounter_catalog", [])
+        if isinstance(area, dict) and area.get("area_id") is not None
+    }
+    projected: list[dict[str, object]] = []
+    terminal = {"caught", "missed", "fled", "fainted"}
+    status_by_area: dict[str, str] = {}
+    for record in encounters:
+        area_id = str(record.area_id)
+        area = catalog_by_area.get(area_id, {})
+        species = next(
+            (choice for choice in area.get("choices", [])
+             if isinstance(choice, dict) and choice.get("species_id") == record.species_id),
+            {},
+        )
+        projected.append({
+            "area_id": area_id,
+            "map_name": area.get("map_name", area_id.replace("_", " ").title()),
+            "status": record.status.value,
+            "species_id": record.species_id,
+            "species_name": species.get("display_name"),
+            "dex_number": species.get("dex_number"),
+            "nickname": record.nickname,
+            "method": record.method,
+            "level": record.level,
+            "source": record.source.value,
+            "notes": record.notes,
+        })
+        status_by_area[area_id] = "consumed" if record.status.value in terminal else "available"
+    dashboard["encounter_history"] = projected
+    for area in dashboard.get("areas", []):
+        if isinstance(area, dict) and str(area.get("area_id")) in status_by_area:
+            area["encounter_status"] = status_by_area[str(area["area_id"])]
+    return dashboard
+
+
 def _iso_utc(value: datetime | None) -> str:
     instant = value or datetime.now(timezone.utc)
     if instant.tzinfo is None:
@@ -481,6 +527,21 @@ class FileSnapshotRepository:
                 return dashboard
             except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
                 raise RepositoryCorruptionError(f"Shared view for code {normalized!r} is corrupt: {exc}") from exc
+
+    def refresh_shared_encounter_dashboard(self, run_id: str) -> None:
+        with self._lock:
+            path = self._run_dir(run_id) / "shared" / "latest.json"
+            if not path.exists():
+                return
+            try:
+                envelope = json.loads(path.read_text(encoding="utf-8"))
+                dashboard = envelope.get("dashboard")
+                if not isinstance(dashboard, dict):
+                    return
+                merge_encounter_history_into_dashboard(dashboard, self.get_run_history(run_id))
+                self._atomic_json(path, envelope)
+            except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+                raise RepositoryCorruptionError(f"Shared view for run {run_id!r} is corrupt: {exc}") from exc
 
     def append_snapshot(self, snapshot: ProgressSnapshot) -> None:
         with self._lock:

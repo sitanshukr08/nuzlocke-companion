@@ -130,6 +130,14 @@ class SQLiteServerAuthenticationTests(unittest.TestCase):
         )
         with opener.open(encounter, timeout=3) as response:
             self.assertEqual(response.status, 201)
+        # Manual history must be visible to viewers without another save upload.
+        with urlopen(f"{self.base_url}/api/view?username=flamer", timeout=3) as response:
+            refreshed = json.load(response)
+        self.assertEqual(refreshed["encounter_history"][0]["nickname"], "Birb")
+        self.assertEqual(
+            next(area for area in refreshed["areas"] if area["area_id"] == "route_2")["encounter_status"],
+            "consumed",
+        )
         unauthorized = Request(
             f"{self.base_url}/api/encounters", method="POST",
             headers={"Content-Type": "application/json"}, data=encounter.data,
