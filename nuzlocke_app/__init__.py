@@ -6,6 +6,7 @@ from .progress import (
     RunProfile,
     create_snapshot,
 )
+from .sqlite_repository import AccountAccess, SQLiteSnapshotRepository
 from .reference import EncounterAreaChoice, EncounterChoice, Gen1WorldDatabase
 from .dashboard import build_dashboard_payload
 from .rules import (
@@ -29,6 +30,8 @@ __all__ = [
     "RepositoryCorruptionError",
     "RunProfile",
     "create_snapshot",
+    "AccountAccess",
+    "SQLiteSnapshotRepository",
     "Gen1WorldDatabase",
     "build_dashboard_payload",
     "EncounterChoice",

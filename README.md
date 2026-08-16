@@ -1,189 +1,212 @@
 # Nuzlocke Companion
 
-## Accounts and shared runs
+Save-backed Pokémon Red/Blue Nuzlocke tracking with a deterministic Gen I
+parser, rule-aware progression guidance, and a read-only friend dashboard.
 
-The first valid save load creates one account for that run:
+The project accepts a raw 32 KiB Generation I save, validates it before any
+data is exposed, normalizes it into typed Python models, and publishes a
+dashboard containing the party, PC boxes, inventory, badges, story events,
+nearby encounters, item availability, trainer guidance, and run history.
+Nuzlocke declarations that cannot be proven from a Gen I save remain manual and
+explicitly labeled as user-confirmed.
 
-- A unique 3–20 character username is the public run ID friends use to view progress.
-- A private password authorizes save uploads and creates a 30-day browser session for manual changes.
+> Pokémon, character names, sprites, and game data belong to their respective
+> owners. This is an unofficial fan project. See
+> nuzlocke_app/web/assets/README.md for visual-asset provenance.
 
-Passwords are processed with Python's memory-hard `scrypt` function and a random per-account
-salt; plaintext passwords are never stored. Shared payloads never contain raw save bytes,
-password data, run IDs, snapshot IDs, or save hashes.
+## Backend overview
 
-Viewer URLs use `/?user=username`. Spectators can inspect the party, PC boxes, encounters,
-trainers, items, map, badges, and run history but cannot modify the run.
+The backend is a Python standard-library HTTP service. A save upload follows
+this pipeline:
 
-All profiles, password hashes, login sessions, immutable snapshots, manual encounter events,
-and published dashboards are stored transactionally in `.nuzlocke_data/nuzlocke.sqlite3`.
-On first startup, the app imports the previous `.nuzlocke_data/runs/...` JSON repository into
-SQLite once, preserving run history; a valid save upload then claims an imported run with its
-new username and password.
+~~~text
+raw .sav bytes
+    -> size/checksum/structure validation
+    -> Red/Blue SaveState
+    -> canonical party, box, inventory, event, and location models
+    -> rule-aware world guidance
+    -> immutable SQLite snapshot
+    -> sanitized owner dashboard or read-only friend dashboard
+~~~
 
-## Public deployment
+The server never trusts browser-provided Pokémon facts. It parses the save,
+checks cross-field invariants, and rejects invalid data before creating a
+snapshot. Manual encounter history is a separate append-only stream because
+Generation I does not store the first wild encounter's route, level, or
+Nuzlocke outcome.
 
-`render.yaml` defines a free Render preview. Its filesystem is ephemeral, so accounts,
-snapshots, manual encounters, and snapshot history can be lost whenever Render restarts the
-service. It is suitable only for a public UI preview.
+## Main capabilities
 
-`render-persistent.yaml` is the paid SQLite deployment configuration. It defines a
-single-instance Python web service with a persistent disk, which preserves all run data across
-restarts and deploys. Rename it to `render.yaml` when moving to that option.
+- Exact 32 KiB Red/Blue save-size and main checksum validation.
+- Party and initialized PC-box parsing, including nicknames, levels, HP,
+  types, moves, PP, status, experience, DVs, and calculated stats.
+- Trainer name/ID, rival name, money, badges, Pokédex, bag, PC inventory,
+  story events, defeated trainers, starter choice, and Hall of Fame parsing.
+- Canonical Gen I species, move, type, item, trainer, encounter, and story
+  data with version-aware Red/Blue guidance.
+- Rule notifications for consumed encounters, collected items, badge gates,
+  level caps, blocked progression, and the next known undefeated trainer.
+- Manual encounter records with area, method, species, nickname, outcome, and
+  caught level. Impossible species/method/level combinations are rejected.
+- Immutable save snapshots and a run-history view showing changes between
+  accepted uploads.
+- Public usernames for friend viewing and private passwords for owner writes.
+- SQLite persistence with a one-time importer for the older JSON repository.
+- Read-only shared dashboards that exclude raw saves, password material,
+  internal run IDs, snapshot IDs, and save hashes.
 
-The service reads these environment variables:
+## Repository architecture
 
-- `HOST` (production value `0.0.0.0`)
-- `PORT` (provided by the hosting platform)
-- `NUZLOCKE_DATA_ROOT` (`/tmp/nuzlocke-data` for the free preview; `/var/data` for persistent SQLite)
+~~~text
+gen1_save_parser/       Binary reader, checksums, models, Gen I layouts
+nuzlocke_app/
+  dashboard.py           Save + rules -> browser dashboard payload
+  reference.py           Canonical encounters/items/world lookup
+  rules.py               Nuzlocke history and progression rules
+  progress.py            Snapshot models and legacy JSON adapter
+  sqlite_repository.py   SQLite accounts, sessions, snapshots, history
+  server.py              Threaded HTTP API and static-file server
+  data/                  Pinned generated world and trainer data
+  web/                   Browser dashboard, CSS, and visual assets
+tests/                   Parser, rules, repository, and API regression tests
+tools/                   Data import and generation utilities
+docs/                    Save-format, world-data, and progress contracts
+render.yaml              Free, ephemeral Render preview
+render-persistent.yaml   Paid, persistent SQLite Render configuration
+~~~
 
-`GET /healthz` is the deployment health check. Never commit `.nuzlocke_data` or emulator save
-files; both are excluded by `.gitignore`.
+The dashboard is a projection layer: parser facts, rule interpretations, and
+manual declarations remain distinguishable in both payload and UI. The server
+uses a single-process threaded HTTP model. SQLite transactions protect shared
+state, but the persistent-disk deployment must remain a single instance.
 
-Trustworthy Pokémon Red/Blue save parsing is the first development milestone.
-The local web dashboard, canonical game database, Nuzlocke history, and rules
-engine are built on top of this deterministic core.
+## Accounts and sharing
 
-## Run the GBC dashboard
+The first valid upload for an unclaimed run creates an account:
 
-From the repository root with Python 3.11 or newer:
+- Username: 3–20 lowercase letters, numbers, or underscores; public and unique.
+- Password: 8–128 characters; private and used for owner operations.
 
-```powershell
+Passwords are stored as salted, memory-hard scrypt hashes. Successful owner
+uploads create a 30-day HttpOnly browser session. Friends do not receive a
+password; they open /?user=<username> or enter the username in the viewer
+form. Viewer requests are read-only and receive a sanitized latest dashboard.
+
+There is currently no password-reset email flow. Owners must keep their
+password. Before production use, add password recovery, login rate limiting,
+audit logging, and a managed database backup policy.
+
+## HTTP API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | /healthz | Deployment health check; returns status ok. |
+| POST | /api/inspect?version=red or blue | Validate a save, authenticate or claim the run, persist a snapshot, and return the owner dashboard. |
+| GET | /api/view?username=id | Return the latest sanitized read-only dashboard. |
+| POST | /api/encounters | Persist a validated manual encounter; requires the owner's session cookie. |
+
+The inspect endpoint receives the save as application/octet-stream and owner
+credentials in X-Run-Username and X-Run-Password. Raw save bytes are not
+included in shared responses. Uploads are capped at 1 MiB before parsing even
+though valid Red/Blue saves are exactly 32 KiB.
+
+## Local development
+
+Requirements: Python 3.11 or newer. Runtime dependencies are Python standard
+library only.
+
+~~~powershell
+cd "C:\path\to\nuzlocke_companion"
 python -m nuzlocke_app.server
-```
+~~~
 
-Then open `http://127.0.0.1:8765`, select Pokémon Red or Blue, and choose a
-32 KiB `.sav` file. The browser sends the bytes only to this local Python
-process. The dashboard renders the parsed trainer name and Pokémon nicknames,
-party/moves/levels, location, badges, active boss and cap, next undefeated
-trainer, nearby version-correct encounters, route locks, and remaining mapped
-items. Dedicated Party and Items screens use the live save state;
-the Items screen decodes canonical names and quantities from both the counted
-bag list and PC item list while keeping those entries distinct from world
-placements. The Town Map marker uses Red/Blue's original coordinate-to-OAM
-calculation instead of a generic percentage approximation. Original
-Red/Blue character sprites replace placeholder portraits. Item existence,
-collection state, and current reachability are kept separate. For example,
-Route 2's HP Up and Moon Stone remain locked until Cut is usable instead of
-being presented as immediately obtainable. Unmodeled walking-path requirements
-are explicitly marked unverified. Encounter history remains explicitly unknown
-until the player records it manually; Pokédex ownership is not used to invent a
-route claim.
+Open http://127.0.0.1:8765. Select the exact game version and choose a raw sav
+file. Keep the server process running while using the browser. Only one server
+may own port 8765.
 
-Keep the PowerShell server window open while using the dashboard. Only one
-server instance may own port 8765; a second launch now exits with a clear
-message instead of silently competing for browser requests. If the page says
-it cannot reach the local server, stop any old instance with `Ctrl+C`, start
-the command once, and reload the page.
+The default data root is .nuzlocke_data; override it with
+NUZLOCKE_DATA_ROOT. The SQLite database is
+.nuzlocke_data/nuzlocke.sqlite3. Existing JSON runs under
+.nuzlocke_data/runs/ are imported once at SQLite initialization. Save files,
+database files, logs, and emulator state are excluded by .gitignore.
 
-The active Gym/League milestone supplies the progression gate and level cap,
-but it no longer overrides the trainer recommendation. The dashboard selects
-the nearest undefeated trainer on the current map, then on an accessible
-directly connected map, and falls back to the active milestone trainer only
-when no local reachable candidate is known.
+## Testing
 
-Scripted encounters that are not ordinary map-object trainers are added
-explicitly when their save events and teams are known. In Cerulean City, the
-unbeaten starter-dependent rival battle is recommended before Nugget Bridge;
-the Rocket thief is excluded until Bill's S.S. Ticket event makes that part of
-the city reachable.
+Run the complete suite from the repository root:
 
-## Current parser capabilities
-
-- validates exact 32 KiB save size;
-- validates the main saved-data checksum;
-- validates party/current-box counts, terminators, species agreement, real
-  species IDs, levels, and party HP consistency;
-- parses the party and current-box cache;
-- parses the player's in-game trainer name and ID, separately from Pokémon
-  nicknames and original-trainer names;
-- parses rival name, money, bag/PC items, Pokédex seen/owned state, and badges;
-- parses persistent trainer/story events, visible/hidden item collection flags,
-  starters, and Hall of Fame completion;
-- parses all twelve persistent PC boxes after they have been initialized and
-  verifies both whole-bank and individual-box checksums;
-- represents untouched PC banks as unknown/uninitialized instead of empty;
-- decodes English Gen I names;
-- records byte-level provenance for important fields;
-- returns structured status and diagnostics;
-- maps all 151 real Pokémon from Gen I internal IDs;
-- normalizes all 165 Gen I moves, the 16 defined type IDs, PP/PP Ups,
-  major status conditions, experience progress, and species base data;
-- cross-validates stored types, move slots, PP limits, experience/level ranges,
-  and calculated party stats before exposing a save;
-- includes golden-fixture and deliberate-corruption tests.
-
-## Location-aware Nuzlocke guidance
-
-The canonical world layer now contains version-specific grass, Surf, and
-Super Rod encounters; trainer placements and parties; visible and hidden item
-tile coordinates; and outdoor map connections. `build_location_guidance()`
-combines that data with a parsed save and append-only user-maintained encounter
-history to report nearby encounter areas, Pokémon types/levels, an explicitly
-qualified next-trainer candidate, item placements, and rule notifications.
-Progression now advances through every Gym, all four Elite Four members, and
-the correct starter-dependent Champion team. Save event bits remove defeated
-trainers and collected items automatically; badge/event milestones update the
-active cap and route-access warnings. At Pewter, this selects the remaining Gym
-trainer or Brock, applies cap 14, and keeps Route 3 blocked until Boulder.
-
-Trainer Pokémon include their exact Red/Blue generated movesets and battle
-stats. The calculation uses the game's fixed trainer DVs (Attack 9; Defense,
-Speed, and Special 8), zero stat experience, level-up move replacement rules,
-and the special Gym Leader, Elite Four, and Champion move overrides. In the
-Trainer Guide, selecting any Pokémon opens its HP, Attack, Defense, Speed,
-Special, types, moves, power, accuracy, PP, and physical/special category.
-
-`encounter_choices(area_id, version)` supplies safe manual-entry choices for
-area, method, species, and valid encounter levels. Persisted caught records
-also store the user-confirmed caught level, nickname, and encounter source.
-
-The web dashboard now assigns each loaded save a stable run ID and persists
-validated encounter events under `.nuzlocke_data/runs/<run-id>/history`.
-Reloading the same save restores those records and immediately reapplies
-first-encounter availability warnings. Terminal results (`caught`, `missed`,
-`fled`, and `fainted`) are append-only audit facts and cannot be silently
-overwritten from the interface.
-
-Party cards link caught records by nickname first (so the link survives
-evolution), with a unique-species fallback. The displayed caught level and
-route are explicitly labeled as user-confirmed because Red/Blue party data
-does not contain met-location or met-level fields.
-
-The filesystem repository persists encounter state transitions and can rebuild
-guidance from the last accepted snapshot with `get_latest_guidance(run_id)`.
-See [world data and rule-aware guidance](docs/world-guidance.md).
-
-See [the save-format specification](docs/gen1-save-format.md) for verified
-offsets, sources, invariants, and explicit limitations.
-
-## Run the tests
-
-From the repository root with Python 3.11 or newer:
-
-```powershell
+~~~powershell
 python -m unittest discover -v
-```
+~~~
 
-The project currently uses only the Python standard library.
+Tests cover golden saves, deliberate byte corruption, parser boundaries,
+party/box invariants, move and stat normalization, item and trainer guidance,
+encounter transitions, snapshot immutability, SQLite authentication, legacy
+migration, viewer privacy, session-only writes, and the HTTP API.
 
-## Shared progress foundation
+GitHub Actions runs the same test command on pushes and pull requests. A change
+is not ready to merge if parser validation, data provenance, or the full
+regression suite is weakened.
 
-The application layer now supports immutable per-run save snapshots and a
-latest-progress summary for the three players. See
-[run snapshots and shared progress](docs/progress-snapshots.md) for the data
-contract, limitations, and future authenticated web boundary.
+## Render deployment
 
-## Public parser API
+The committed render.yaml is a free preview. It runs one Python web service
+and writes SQLite under /tmp/nuzlocke-data. Render's free filesystem is
+ephemeral, so accounts, snapshots, and manual history may disappear after a
+restart. This mode is suitable for demonstrating the UI, not permanent data.
 
-```python
-from gen1_save_parser import GameVersion, parse_save, parse_save_bytes, validate_save_bytes
+render-persistent.yaml is the paid alternative. It attaches a persistent disk
+at /var/data and sets NUZLOCKE_DATA_ROOT=/var/data. Use it as the Blueprint
+file when durable SQLite storage is required. A future managed Postgres adapter
+is the preferred free multi-user architecture.
 
-validation = validate_save_bytes(uploaded_bytes)
-state = parse_save_bytes(uploaded_bytes, expected_version=GameVersion.BLUE)
-state_from_path = parse_save("run.sav", expected_version=GameVersion.BLUE)
-```
+To deploy the preview, push the repository to GitHub, create a Render
+Blueprint from the main branch, keep the Blueprint path as render.yaml, and
+apply the detected service. The service uses:
 
-Callers must check `state.status` or `state.is_valid` before using parsed data.
-Invalid input is never returned as a partially trusted party or box state.
-The expected Red/Blue version comes from the run configuration because the
-standalone save does not contain an authoritative version header.
+~~~text
+build: python -m compileall -q gen1_save_parser nuzlocke_app
+start: python -m nuzlocke_app.server
+health: /healthz
+host: 0.0.0.0
+~~~
+
+## Accuracy boundaries
+
+- Game version is run configuration; the standalone save does not identify
+  Red versus Blue authoritatively.
+- The save has no first-encounter route, level, or outcome fields. Those values
+  are manual and labeled user-confirmed.
+- Pokémon nicknames and party moves are parsed from the save, not inferred from
+  species learnsets.
+- Pokédex ownership does not imply a Nuzlocke encounter claim.
+- Item existence, collection flags, inventory ownership, and route access are
+  separate concepts.
+- Trainer recommendations use known placement, event bits, progression gates,
+  and accessible-area data. Walking-path collision/pathfinding is not claimed.
+- The inaccurate map panel is removed until every interior map has a verified
+  asset and coordinate transform. Current location name and save coordinates
+  remain available in the dashboard.
+
+See docs/gen1-save-format.md, docs/world-guidance.md, and
+docs/progress-snapshots.md for detailed contracts and evidence boundaries.
+
+## Contributing
+
+1. Add or update a focused regression test for behavior changes.
+2. Preserve provenance when changing generated Pokémon Red/Blue data.
+3. Run python -m unittest discover -v.
+4. Document a new limitation instead of silently guessing.
+5. Never commit sav files, .nuzlocke_data, passwords, database files, private
+   run data, or unlicensed artwork.
+
+Parser changes should document the verified save offset, checksum invariant, or
+source revision they rely on. If a value cannot be proven from the save,
+represent it as unknown or manual.
+
+## License and third-party data
+
+No project software license has been selected yet. Until one is added, do not
+assume the source code is licensed for redistribution. Pokémon game data and
+visual assets remain third-party material; review each asset's provenance and
+terms before redistributing a public build.
+
