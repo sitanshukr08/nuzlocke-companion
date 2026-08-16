@@ -1,0 +1,32 @@
+# PC Box Data Structure (used for the Current Box cache at 0x30C0)
+# 1122 bytes total
+
+BOX_COUNT_OFFSET = 0x00
+BOX_SPECIES_LIST_OFFSET = 0x01
+BOX_SPECIES_LIST_SIZE = 20
+
+# 20 33-byte Pokemon structures
+BOX_POKEMON_DATA_OFFSET = 0x16
+BOX_POKEMON_DATA_STRUCT_SIZE = 33
+MAX_BOX_SIZE = 20
+
+BOX_OT_NAMES_OFFSET = 0x2AA
+BOX_OT_NAMES_SIZE = 11 * 20
+
+BOX_NICKNAMES_OFFSET = 0x386
+BOX_NICKNAMES_SIZE = 11 * 20
+
+# 33-byte struct sub-offsets (same as first 33 bytes of party struct)
+FIELD_SPECIES = 0x00
+FIELD_CURRENT_HP = 0x01
+FIELD_LEVEL = 0x03
+FIELD_STATUS = 0x04
+FIELD_TYPE1 = 0x05
+FIELD_TYPE2 = 0x06
+FIELD_CATCH_RATE = 0x07
+FIELD_MOVES = 0x08 # 4 bytes
+FIELD_OT_ID = 0x0C
+FIELD_EXP = 0x0E # 3 bytes
+FIELD_STAT_EXP = 0x11 # 10 bytes
+FIELD_DVS = 0x1B # 2 bytes
+FIELD_PP = 0x1D # 4 bytes

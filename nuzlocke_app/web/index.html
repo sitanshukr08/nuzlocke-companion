@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nuzlocke Companion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="crt-frame">
+    <header class="topline">
+      <div class="logo"><div class="logo-ball"><span></span></div><div><div class="logo-title">NUZLOCKE</div><div class="logo-sub">COMPANION</div></div></div>
+      <div class="header-run"><span class="version-chip" id="versionChip">GEN I</span><span class="divider">|</span><strong id="runName">NO SAVE LOADED</strong></div>
+      <div class="header-actions"><button id="reloadBtn" aria-label="Load another save" title="Load another save">▣</button><button id="themeBtn" aria-label="Toggle theme" title="Toggle theme">◐</button><button id="menuBtn" aria-label="About this dashboard" title="About">☰</button></div>
+    </header>
+
+    <main class="upload-screen" id="uploadScreen">
+      <section class="upload-box box">
+        <div class="box-title">LOAD A GENERATION I SAVE</div>
+        <h1>BEGIN YOUR RUN</h1>
+        <p>Select the exact game version, then load a raw 32 KiB Pokémon Red or Blue <code>.sav</code> file.</p>
+        <label for="gameVersion">GAME VERSION</label>
+        <select id="gameVersion"><option value="blue">Pokémon Blue</option><option value="red">Pokémon Red</option></select>
+        <div class="account-fields">
+          <label for="ownerUsername">YOUR UNIQUE USERNAME<input id="ownerUsername" minlength="3" maxlength="20" autocomplete="username" spellcheck="false" placeholder="flamer"></label>
+          <label for="ownerPassword">YOUR PRIVATE PASSWORD<input id="ownerPassword" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="At least 8 characters"></label>
+        </div>
+        <small class="account-help">First load creates the account. Later loads sign in to the same username. Friends only need your username.</small>
+        <label for="saveFile">SAVE FILE</label>
+        <input id="saveFile" type="file" accept=".sav,application/octet-stream">
+        <button class="primary-button" id="inspectBtn">▶ INSPECT SAVE</button>
+        <div class="upload-status" id="uploadStatus" role="status" aria-live="polite">Your save is sent only to this companion server for validation. Raw save bytes are not included in shared viewer data.</div>
+        <div class="share-divider"><span>OR VIEW A FRIEND'S RUN</span></div>
+        <label for="viewerUsername">FRIEND'S USERNAME</label>
+        <div class="viewer-code-form"><input id="viewerUsername" minlength="3" maxlength="20" autocomplete="off" spellcheck="false" placeholder="flamer"><button class="primary-button" id="viewRunBtn" type="button">▶ VIEW RUN</button></div>
+        <div class="upload-status" id="viewerStatus" role="status" aria-live="polite">A public username provides read-only access. It cannot upload saves or edit a run.</div>
+      </section>
+    </main>
+
+    <div class="game-layout hidden" id="gameLayout">
+      <aside class="sidebar">
+        <nav class="sidebar-menu" aria-label="Dashboard navigation">
+          <button class="menu-item active" data-view="dashboard"><span class="pointer">▶</span><span>Dashboard</span></button>
+          <button class="menu-item" data-view="map"><span class="pointer"> </span><span>Map</span></button>
+          <button class="menu-item" data-view="party"><span class="pointer"> </span><span>Party</span></button>
+          <button class="menu-item" data-view="boxes"><span class="pointer"> </span><span>PC Boxes</span></button>
+          <button class="menu-item" data-view="encounters"><span class="pointer"> </span><span>Encounters</span></button>
+          <button class="menu-item" data-view="trainers"><span class="pointer"> </span><span>Trainers</span></button>
+          <button class="menu-item" data-view="items"><span class="pointer"> </span><span>Items</span></button>
+          <button class="menu-item" data-view="run-history"><span class="pointer"> </span><span>Run History</span></button>
+        </nav>
+        <div class="side-run-card" id="sideStats"></div>
+        <div class="share-run-card hidden" id="shareRunCard"><span id="shareRole">SHARE RUN</span><strong id="shareUsername">—</strong><button id="copyShareBtn" type="button">COPY VIEWER LINK</button><small id="shareNote">Read-only access</small></div>
+        <div class="trainer-portrait-wrap"><div class="portrait-label">TRAINER</div><img class="trainer-portrait" src="assets/player-red.png" alt="Generation I player character Red"></div>
+      </aside>
+
+      <main class="content">
+        <section class="route-banner"><div><div class="crumb">CURRENT LOCATION</div><h1 id="locationName">—</h1></div><div class="save-readout"><span class="save-dot"></span>SAVE PARSED<strong id="coordinates">—</strong></div></section>
+        <section class="map-strip" id="dashboardMapStrip" aria-hidden="true"><div class="map-ground"></div><div class="map-tree-row top"></div><div class="map-grass"></div><div class="map-path"></div><span class="map-player-sprite"></span><div class="map-tree-row bottom"></div></section>
+
+        <section class="dashboard-grid" id="dashboardView">
+          <section class="box party-box"><div class="box-title">YOUR PARTY <span id="partyCount">0 / 6</span></div><div class="party-stack" id="partyStack"></div><button class="arrow-link" id="partyLink">▶ PARTY DETAILS</button></section>
+          <section class="box location-box"><div class="box-title">NEARBY ENCOUNTERS &amp; ITEMS</div><label class="subheading" for="areaSelect">AREA</label><select id="areaSelect"></select><div class="notice" id="encounterNotice">NO NEARBY AREA DATA</div><div class="subheading">POSSIBLE ENCOUNTERS</div><div class="encounter-list" id="encounters"></div><div class="subheading">REMAINING ITEMS</div><div class="rule-note" id="itemList">None detected.</div></section>
+          <section class="box opponent-box"><div class="box-title">NEXT TRAINER <span class="trainer-status-chip" id="trainerStatus">UNDEFEATED</span></div><div class="opponent-main"><img class="character-model" id="objectivePortrait" src="assets/player-red.png" alt="Generation I character"><div class="opponent-data"><div class="encounter-kicker">IMMEDIATE ENCOUNTER</div><h2 id="trainerName">NO TRAINER</h2><div class="trainer-location" id="trainerPosition">—</div></div></div><div class="trainer-stats"><div><span>YOUR HIGHEST</span><strong id="partyHighest">—</strong></div><div><span>THEIR HIGHEST</span><strong id="trainerHighest">—</strong></div></div><div class="subheading">EXPECTED TEAM</div><div class="trainer-team-list" id="trainerTeam"></div><div class="progression-target"><div><span>PROGRESSION TARGET</span><strong id="objectiveName">RUN COMPLETE</strong><small id="objectiveArea">HALL OF FAME</small></div><div class="cap-readout"><span>LEVEL CAP</span><strong id="levelCap">—</strong></div></div><button class="arrow-link" id="trainerLink">▶ OPEN TRAINER GUIDE</button></section>
+          <section class="box badges-box"><div class="box-title">BADGES</div><div class="badge-row" id="badges"></div><div class="progress-card"><div class="progress-head"><span>KANTO PROGRESS</span><strong id="progressText">0 / 13</strong></div><div class="progress-track"><i id="progressBar"></i></div></div></section>
+          <section class="box events-box"><div class="box-title">SAVE EVIDENCE</div><div class="event-list" id="events"></div><button class="arrow-link" id="historyLink">▶ PARSER &amp; EVENT DETAILS</button></section>
+          <section class="box status-box"><div class="box-title">RUN STATUS</div><div id="statusList"></div><button class="arrow-link" id="rulesLink">▶ RULE INTERPRETATION</button></section>
+        </section>
+        <section class="view-screen hidden" id="partyView">
+          <div class="box view-box"><div class="box-title">FULL PARTY · SAVE-BACKED DETAILS</div><div class="full-party-grid" id="fullParty"></div></div>
+        </section>
+        <section class="view-screen hidden" id="boxesView">
+          <div class="box view-box"><div class="box-title">PC BOXES · SAVE-BACKED STORAGE <span id="boxPokemonTotal">0 POKÉMON</span></div><p class="items-explainer" id="boxAccuracyNote">Box status unavailable.</p><div class="box-tabs" id="boxTabs" role="tablist" aria-label="PC storage boxes"></div><div class="box-summary" id="boxSummary"></div><div class="pc-pokemon-grid" id="boxPokemonGrid"></div></div>
+        </section>
+        <section class="view-screen hidden" id="encountersView">
+          <div class="box view-box"><div class="box-title">ENCOUNTER HISTORY · MANUALLY CONFIRMED</div><p class="items-explainer">Generation I saves do not store the route and level where a Pokémon was first encountered. Add that information here; the local server validates and saves it on this laptop, then restores it whenever this run is loaded again.</p><form class="encounter-form" id="encounterForm"><label>AREA<select id="historyArea" required></select></label><label>RESULT<select id="historyStatus"><option value="caught">Caught</option><option value="missed">Missed</option><option value="fled">Fled</option><option value="fainted">Fainted</option><option value="encountered">Encountered</option><option value="unclaimed">Unclaimed</option></select></label><label>POKÉMON<select id="historySpecies"></select></label><label>LEVEL<input id="historyLevel" type="number" min="1" max="100" inputmode="numeric"></label><label>NICKNAME<input id="historyNickname" maxlength="10"></label><label>METHOD<select id="historyMethod"></select></label><button class="primary-button" type="submit">SAVE ENCOUNTER</button></form><div class="subheading trainer-section-title">RECORDED AREAS <span id="encounterHistoryCount">0</span></div><div class="encounter-history-list" id="encounterHistoryList"></div></div>
+        </section>
+        <section class="view-screen hidden" id="mapView">
+          <div class="box view-box"><div class="box-title" id="mapViewTitle">CURRENT MAP · GENERATION I</div><div class="kanto-map-wrap"><div class="map-game-label" id="mapGameLabel">—</div><div class="kanto-map-canvas" id="mapCanvas"><img id="mapImage" src="assets/kanto-town-map-rby.png" alt="Generation I Kanto Town Map" class="kanto-map"><span class="map-marker hidden" id="mapMarker" aria-label="Player's exact tile position" role="img"></span></div></div><div class="map-readout"><strong id="mapLocationName">—</strong><span id="mapLocationDetails">—</span></div><div class="map-accuracy" id="mapAccuracy">MAP PRECISION UNAVAILABLE</div><div class="nearby-map-list" id="mapNearby"></div><p class="asset-credit"><a id="mapSource" href="https://github.com/pret/pokered" target="_blank" rel="noreferrer">Pokémon Red/Blue map data</a>. Player coordinates are parsed directly from the loaded save.</p></div>
+        </section>
+        <section class="view-screen hidden" id="trainersView">
+          <div class="box view-box"><div class="box-title">TRAINER GUIDE · SAVE-BACKED PROGRESS <span>SELECT A POKÉMON FOR MOVES &amp; STATS</span></div><div class="subheading">NEXT REACHABLE UNDEFEATED TRAINER</div><div class="next-trainer-guide" id="nextTrainerCard"></div><div class="subheading trainer-section-title">OTHER REACHABLE UNDEFEATED TRAINERS</div><div class="reachable-trainer-list" id="reachableTrainerList"></div><div class="subheading trainer-section-title">KANTO PROGRESSION</div><div class="league-roster" id="leagueRoster"></div><div class="subheading trainer-section-title">TRAINERS AT CURRENT PROGRESSION TARGET</div><div class="objective-trainer-list" id="objectiveTrainerList"></div></div>
+        </section>
+        <section class="view-screen hidden" id="itemsView">
+          <div class="box view-box"><div class="box-title">ITEMS · SAVE INVENTORY &amp; WORLD PLACEMENTS</div><p class="items-explainer">Bag and PC entries are decoded directly from the save. World placements are tracked separately because owning an item does not prove which map copy was collected.</p><div class="inventory-columns"><section><div class="subheading">BAG · SAVE-BACKED</div><div class="inventory-list" id="bagInventory"></div></section><section><div class="subheading">PC · SAVE-BACKED</div><div class="inventory-list" id="pcInventory"></div></section></div><div class="subheading items-world-heading">CURRENT &amp; NEARBY WORLD ITEMS</div><div class="world-item-list" id="worldItemList"></div></div>
+        </section>
+        <section class="view-screen hidden" id="runHistoryView">
+          <div class="box view-box"><div class="box-title">RUN HISTORY · ACCEPTED SAVE SNAPSHOTS <span id="runHistoryTotal">0 LOADS</span></div><p class="items-explainer" id="runHistoryExplanation">Times represent save loads on this laptop.</p><div class="run-history-list" id="runHistoryList"></div></div>
+        </section>
+        <footer class="footer-box"><span>© NUZLOCKE COMPANION</span><span>Red / Blue save-backed tracking</span><span id="footerMessage">Parsed evidence is distinct from manual run history.</span></footer>
+      </main>
+    </div>
+  </div>
+
+  <div class="dialog hidden" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="dialog-inner"><button class="dialog-close" id="dialogClose" aria-label="Close dialog">×</button><div class="dialog-title" id="dialogTitle">DETAILS</div><div class="dialog-body" id="dialogBody"></div></div></div>
+  <script src="app.js"></script>
+</body>
+</html>

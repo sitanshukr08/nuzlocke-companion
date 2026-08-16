@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.venv/
+venv/
+
+# Private run data and raw emulator saves must never enter source control.
+.nuzlocke_data/
+*.sav
+*.srm
+
+# Local tooling and temporary files.
+.tmp_*/
+*.log
+.DS_Store
+Thumbs.db
+
