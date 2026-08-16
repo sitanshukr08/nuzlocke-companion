@@ -56,7 +56,7 @@ Then open `http://127.0.0.1:8765`, select Pokémon Red or Blue, and choose a
 process. The dashboard renders the parsed trainer name and Pokémon nicknames,
 party/moves/levels, location, badges, active boss and cap, next undefeated
 trainer, nearby version-correct encounters, route locks, and remaining mapped
-items. Dedicated Party, Items, and Kanto Map screens use the live save state;
+items. Dedicated Party and Items screens use the live save state;
 the Items screen decodes canonical names and quantities from both the counted
 bag list and PC item list while keeping those entries distinct from world
 placements. The Town Map marker uses Red/Blue's original coordinate-to-OAM

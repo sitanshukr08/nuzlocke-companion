@@ -353,41 +353,6 @@ function renderObjective(data) {
   });
 }
 
-function renderMap(data) {
-  $("mapLocationName").textContent = data.location.name.toUpperCase();
-  $("mapGameLabel").textContent = data.location.name.toUpperCase();
-  const view = data.location.map_view || {precision: "unavailable"};
-  const exact = view.precision === "exact_tile";
-  const image = $("mapImage"), marker = $("mapMarker"), canvas = $("mapCanvas");
-  image.src = view.asset || "assets/kanto-town-map-rby.png";
-  image.alt = exact ? `Exact Pokémon Red/Blue map of ${data.location.name}` : "Generation I Kanto Town Map overview";
-  canvas.classList.toggle("exact-map", exact);
-  marker.classList.toggle("hidden", !exact);
-  $("mapViewTitle").textContent = exact ? "EXACT CURRENT MAP · GENERATION I" : "KANTO REGIONAL OVERVIEW · GENERATION I";
-  $("mapLocationDetails").textContent = exact
-    ? `Map ${data.location.map_id} · exact tile (${data.location.x}, ${data.location.y}) · ${view.width_tiles}×${view.height_tiles} tiles`
-    : `Map ${data.location.map_id} · save tile (${data.location.x}, ${data.location.y})`;
-  $("mapAccuracy").textContent = exact
-    ? `EXACT TILE PLACEMENT · X ${data.location.x} / ${view.width_tiles - 1} · Y ${data.location.y} / ${view.height_tiles - 1}`
-    : "REGIONAL LOCATION ONLY · AN EXACT FULL-MAP IMAGE IS NOT REGISTERED FOR THIS AREA YET";
-  $("mapAccuracy").classList.toggle("exact", exact);
-  const source = $("mapSource");
-  source.textContent = view.source_label || "Pokémon Red/Blue map data";
-  source.href = view.source_url || "https://github.com/pret/pokered";
-  if (exact) {
-    marker.style.left = `${view.marker_left_percent}%`;
-    marker.style.top = `${view.marker_top_percent}%`;
-    marker.style.width = `${100 / view.width_tiles}%`;
-    marker.style.setProperty("--map-height-tiles", view.height_tiles);
-  }
-  const nearby = $("mapNearby"); clear(nearby);
-  data.areas.forEach(area => {
-    const card = element("div", `map-neighbor ${area.progression_accessible ? "open" : "locked"}`);
-    card.append(element("strong", "", `${area.direction ? area.direction.toUpperCase() + " · " : ""}${area.map_name}`), element("span", "", area.progression_accessible ? "Progression accessible" : area.blocked_reason));
-    nearby.append(card);
-  });
-}
-
 function renderInventory(data) {
   const renderSavedList = (rootId, entries) => {
     const root = $(rootId); clear(root);
@@ -417,11 +382,9 @@ function renderInventory(data) {
 function switchView(name) {
   if (!dashboard) return;
   $("dashboardView").classList.toggle("hidden", name !== "dashboard");
-  $("dashboardMapStrip").classList.toggle("hidden", name !== "dashboard");
   $("partyView").classList.toggle("hidden", name !== "party");
   $("boxesView").classList.toggle("hidden", name !== "boxes");
   $("encountersView").classList.toggle("hidden", name !== "encounters");
-  $("mapView").classList.toggle("hidden", name !== "map");
   $("trainersView").classList.toggle("hidden", name !== "trainers");
   $("itemsView").classList.toggle("hidden", name !== "items");
   $("runHistoryView").classList.toggle("hidden", name !== "run-history");
@@ -539,7 +502,7 @@ function renderDashboard(data) {
   const stats = $("sideStats"); clear(stats);
   [`RUN: ${data.trainer.name}`, `BADGES: ${data.badges.length}`, `POKÉDEX: ${data.trainer.pokedex_owned}/${data.trainer.pokedex_seen}`, `MONEY: ¥${data.trainer.money}`, `HOF: ${data.trainer.hall_of_fame_teams}`].forEach(text => stats.append(element("div", "", text)));
   if (data.sharing?.role !== "viewer") applyEncounterHistory();
-  renderParty(data); renderBoxes(data); renderObjective(data); renderBadges(data); renderEvidence(data); renderChecks(data); renderMap(data); renderTrainers(data); renderInventory(data); renderRunHistory(data);
+  renderParty(data); renderBoxes(data); renderObjective(data); renderBadges(data); renderEvidence(data); renderChecks(data); renderTrainers(data); renderInventory(data); renderRunHistory(data);
   renderSharing(data);
   const select = $("areaSelect"); clear(select);
   data.areas.forEach((area, index) => { const option = element("option", "", `${area.map_name}${area.progression_accessible ? "" : " (LOCKED)"}`); option.value = index; select.append(option); });

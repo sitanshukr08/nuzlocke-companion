@@ -44,7 +44,6 @@
       <aside class="sidebar">
         <nav class="sidebar-menu" aria-label="Dashboard navigation">
           <button class="menu-item active" data-view="dashboard"><span class="pointer">▶</span><span>Dashboard</span></button>
-          <button class="menu-item" data-view="map"><span class="pointer"> </span><span>Map</span></button>
           <button class="menu-item" data-view="party"><span class="pointer"> </span><span>Party</span></button>
           <button class="menu-item" data-view="boxes"><span class="pointer"> </span><span>PC Boxes</span></button>
           <button class="menu-item" data-view="encounters"><span class="pointer"> </span><span>Encounters</span></button>
@@ -59,7 +58,6 @@
 
       <main class="content">
         <section class="route-banner"><div><div class="crumb">CURRENT LOCATION</div><h1 id="locationName">—</h1></div><div class="save-readout"><span class="save-dot"></span>SAVE PARSED<strong id="coordinates">—</strong></div></section>
-        <section class="map-strip" id="dashboardMapStrip" aria-hidden="true"><div class="map-ground"></div><div class="map-tree-row top"></div><div class="map-grass"></div><div class="map-path"></div><span class="map-player-sprite"></span><div class="map-tree-row bottom"></div></section>
 
         <section class="dashboard-grid" id="dashboardView">
           <section class="box party-box"><div class="box-title">YOUR PARTY <span id="partyCount">0 / 6</span></div><div class="party-stack" id="partyStack"></div><button class="arrow-link" id="partyLink">▶ PARTY DETAILS</button></section>
@@ -77,9 +75,6 @@
         </section>
         <section class="view-screen hidden" id="encountersView">
           <div class="box view-box"><div class="box-title">ENCOUNTER HISTORY · MANUALLY CONFIRMED</div><p class="items-explainer">Generation I saves do not store the route and level where a Pokémon was first encountered. Add that information here; the local server validates and saves it on this laptop, then restores it whenever this run is loaded again.</p><form class="encounter-form" id="encounterForm"><label>AREA<select id="historyArea" required></select></label><label>RESULT<select id="historyStatus"><option value="caught">Caught</option><option value="missed">Missed</option><option value="fled">Fled</option><option value="fainted">Fainted</option><option value="encountered">Encountered</option><option value="unclaimed">Unclaimed</option></select></label><label>POKÉMON<select id="historySpecies"></select></label><label>LEVEL<input id="historyLevel" type="number" min="1" max="100" inputmode="numeric"></label><label>NICKNAME<input id="historyNickname" maxlength="10"></label><label>METHOD<select id="historyMethod"></select></label><button class="primary-button" type="submit">SAVE ENCOUNTER</button></form><div class="subheading trainer-section-title">RECORDED AREAS <span id="encounterHistoryCount">0</span></div><div class="encounter-history-list" id="encounterHistoryList"></div></div>
-        </section>
-        <section class="view-screen hidden" id="mapView">
-          <div class="box view-box"><div class="box-title" id="mapViewTitle">CURRENT MAP · GENERATION I</div><div class="kanto-map-wrap"><div class="map-game-label" id="mapGameLabel">—</div><div class="kanto-map-canvas" id="mapCanvas"><img id="mapImage" src="assets/kanto-town-map-rby.png" alt="Generation I Kanto Town Map" class="kanto-map"><span class="map-marker hidden" id="mapMarker" aria-label="Player's exact tile position" role="img"></span></div></div><div class="map-readout"><strong id="mapLocationName">—</strong><span id="mapLocationDetails">—</span></div><div class="map-accuracy" id="mapAccuracy">MAP PRECISION UNAVAILABLE</div><div class="nearby-map-list" id="mapNearby"></div><p class="asset-credit"><a id="mapSource" href="https://github.com/pret/pokered" target="_blank" rel="noreferrer">Pokémon Red/Blue map data</a>. Player coordinates are parsed directly from the loaded save.</p></div>
         </section>
         <section class="view-screen hidden" id="trainersView">
           <div class="box view-box"><div class="box-title">TRAINER GUIDE · SAVE-BACKED PROGRESS <span>SELECT A POKÉMON FOR MOVES &amp; STATS</span></div><div class="subheading">NEXT REACHABLE UNDEFEATED TRAINER</div><div class="next-trainer-guide" id="nextTrainerCard"></div><div class="subheading trainer-section-title">OTHER REACHABLE UNDEFEATED TRAINERS</div><div class="reachable-trainer-list" id="reachableTrainerList"></div><div class="subheading trainer-section-title">KANTO PROGRESSION</div><div class="league-roster" id="leagueRoster"></div><div class="subheading trainer-section-title">TRAINERS AT CURRENT PROGRESSION TARGET</div><div class="objective-trainer-list" id="objectiveTrainerList"></div></div>
