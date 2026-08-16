@@ -30,6 +30,16 @@ TRAINER_AVAILABILITY_EVENTS = {
 TRAINER_AVAILABILITY_CAPABILITIES = {
     "route_4:1:lass:4": ("Soul", "surf"),
 }
+# Exact warp tiles from the canonical pokered map object data.  A warp is only
+# considered reachable when the save's player coordinates are on that tile;
+# merely being somewhere on the same map must not expose cave contents.
+WARP_COORDINATES = {
+    0x0F: ((11, 5, 0x44), (18, 5, 0x3B), (24, 5, 0x3C)),  # Route 4
+    0x3B: ((14, 35, 0x0F), (15, 35, 0x0F), (5, 5, 0x3C), (17, 11, 0x3C), (25, 15, 0x3C)),
+    0x3C: ((5, 5, 0x3B), (17, 11, 0x3D), (25, 9, 0x3B), (25, 15, 0x3B),
+           (21, 17, 0x3D), (13, 27, 0x3D), (23, 3, 0x3D), (27, 3, 0x0F)),
+    0x3D: ((25, 9, 0x3C), (21, 17, 0x3C), (15, 27, 0x3C), (5, 7, 0x3C)),
+}
 GYM_SPECIAL_MOVES = {
     "brock": (1, 0x75), "misty": (1, 0x3D), "lt_surge": (2, 0x55),
     "erika": (2, 0x48), "koga": (3, 0x5C), "sabrina": (3, 0x95),
@@ -117,6 +127,18 @@ class Gen1WorldDatabase:
 
     def connected_maps(self, map_id: int) -> tuple[dict[str, object], ...]:
         return tuple(self._connections.get(map_id, ()))
+
+    def movement_connections(self, map_id: int, player_x: int | None = None, player_y: int | None = None) -> tuple[dict[str, object], ...]:
+        """Return normal connections plus a warp under the player's exact tile."""
+        result = list(self.connected_maps(map_id))
+        existing = {int(item["to_map_id"]) for item in result}
+        warps = WARP_COORDINATES.get(map_id, ())
+        if player_x is not None and player_y is not None:
+            warps = tuple(warp for warp in warps if warp[:2] == (player_x, player_y))
+        for x, y, target_id in warps:
+            if target_id not in existing:
+                result.append({"from_map_id": map_id, "to_map_id": target_id, "direction": "warp", "x": x, "y": y})
+        return tuple(result)
 
     def encounter_summaries(self, map_id: int, version: GameVersion) -> tuple[EncounterSummary, ...]:
         grouped: dict[tuple[str, int], dict[str, object]] = {}
@@ -386,7 +408,7 @@ class Gen1WorldDatabase:
             for trainer in local_trainers
             if eligible(trainer)
         ]
-        for connection in self.connected_maps(map_id):
+        for connection in self.movement_connections(map_id, player_x, player_y):
             target_id = connection["to_map_id"]
             if allowed_connected_map_ids is not None and target_id not in allowed_connected_map_ids:
                 continue
@@ -404,6 +426,8 @@ class Gen1WorldDatabase:
                     distance = target.width_blocks * 2 - 1 - trainer["x"] + abs(trainer["y"] - target.height_blocks)
                 elif direction == "south":
                     distance = trainer["y"] + abs(trainer["x"] - target.width_blocks)
+                elif direction == "warp":
+                    distance = 0
                 else:
                     distance = target.height_blocks * 2 - 1 - trainer["y"] + abs(trainer["x"] - target.width_blocks)
                 candidates.append((trainer, "connected_map_entry_coordinate_heuristic", distance))

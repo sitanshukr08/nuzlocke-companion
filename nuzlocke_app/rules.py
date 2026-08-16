@@ -201,7 +201,7 @@ def build_location_guidance(
     for map_id, direction in [
         (state.current_map_id, None),
         *[(connection["to_map_id"], connection["direction"])
-          for connection in world.connected_maps(state.current_map_id)],
+          for connection in world.movement_connections(state.current_map_id, state.player_x, state.player_y)],
     ]:
         if map_id not in seen_map_ids:
             nearby_targets.append((map_id, direction))
@@ -311,7 +311,7 @@ def build_location_guidance(
                 ))
     accessible_connected_map_ids = frozenset(
         connection["to_map_id"]
-        for connection in world.connected_maps(state.current_map_id)
+        for connection in world.movement_connections(state.current_map_id, state.player_x, state.player_y)
         if _area_access(get_map(connection["to_map_id"]).stable_id, state, world)[0]
     )
     reachable_trainers = world.reachable_trainer_candidates(

@@ -65,6 +65,11 @@ class WorldDatabaseTests(unittest.TestCase):
         self.assertFalse(self.world.trainer_is_available(trainer, no_surf))
         self.assertTrue(self.world.trainer_is_available(trainer, surf))
 
+    def test_mt_moon_entrance_and_exit_warps_are_nearby_world_maps(self) -> None:
+        self.assertNotIn(0x3B, {item["to_map_id"] for item in self.world.movement_connections(0x0F, 20, 5)})
+        self.assertIn(0x3B, {item["to_map_id"] for item in self.world.movement_connections(0x0F, 18, 5)})
+        self.assertIn(0x0F, {item["to_map_id"] for item in self.world.movement_connections(0x3B, 14, 35)})
+
     def test_visible_and_hidden_items_have_exact_tile_coordinates(self) -> None:
         items = self.world.items_for_map(0x33, GameVersion.BLUE)
         self.assertIn(("Antidote", False, 25, 11), {
