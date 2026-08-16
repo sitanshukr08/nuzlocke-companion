@@ -3,6 +3,7 @@ import unittest
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from gen1_save_parser import GameVersion, parse_save_bytes
 from gen1_save_parser.checksum import calculate_main_checksum
@@ -52,6 +53,17 @@ class WorldDatabaseTests(unittest.TestCase):
         blue = {item.species_name for item in self.world.encounter_summaries(0x0D, GameVersion.BLUE)}
         self.assertEqual(red, {"Pidgey", "Rattata", "Weedle"})
         self.assertEqual(blue, {"Pidgey", "Rattata", "Caterpie"})
+
+    def test_route_4_lass_is_not_recommended_before_surf_access(self) -> None:
+        trainer = next(item for item in self.world.trainers_for_map(0x0F, GameVersion.BLUE)
+                       if item["trainer_id"] == "route_4:1:lass:4")
+        no_surf = SimpleNamespace(earned_badges=(), party=())
+        surf = SimpleNamespace(
+            earned_badges=("Soul",),
+            party=(SimpleNamespace(move_details=(SimpleNamespace(stable_id="surf"),)),),
+        )
+        self.assertFalse(self.world.trainer_is_available(trainer, no_surf))
+        self.assertTrue(self.world.trainer_is_available(trainer, surf))
 
     def test_visible_and_hidden_items_have_exact_tile_coordinates(self) -> None:
         items = self.world.items_for_map(0x33, GameVersion.BLUE)

@@ -24,6 +24,12 @@ CERULEAN_RIVAL_PARTIES = {
 TRAINER_AVAILABILITY_EVENTS = {
     "cerulean_city:1:rocket:5": "EVENT_GOT_SS_TICKET",
 }
+# This Route 4 Lass is on the high ledge reachable only from the Route 24
+# waterway.  Treating every object on the shared Route 4 map as walkably
+# reachable incorrectly recommended her before Surf was available.
+TRAINER_AVAILABILITY_CAPABILITIES = {
+    "route_4:1:lass:4": ("Soul", "surf"),
+}
 GYM_SPECIAL_MOVES = {
     "brock": (1, 0x75), "misty": (1, 0x3D), "lt_surge": (2, 0x55),
     "erika": (2, 0x48), "koga": (3, 0x5C), "sabrina": (3, 0x95),
@@ -231,7 +237,17 @@ class Gen1WorldDatabase:
         if state is None:
             return True
         required_event = TRAINER_AVAILABILITY_EVENTS.get(str(trainer["trainer_id"]))
-        return required_event is None or self.event_is_set(state, required_event)
+        if required_event is not None and not self.event_is_set(state, required_event):
+            return False
+        required_capability = TRAINER_AVAILABILITY_CAPABILITIES.get(str(trainer["trainer_id"]))
+        if required_capability is None:
+            return True
+        badge, move_id = required_capability
+        return badge in getattr(state, "earned_badges", ()) and any(
+            move.stable_id == move_id
+            for mon in getattr(state, "party", ())
+            for move in getattr(mon, "move_details", ())
+        )
 
     def event_is_set(self, state: object, event_symbol: str) -> bool:
         return self.data["event_constants"][event_symbol] in getattr(state, "event_flags", ())

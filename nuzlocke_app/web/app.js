@@ -332,9 +332,15 @@ function renderObjective(data) {
     connected_map_entry_coordinate_heuristic: "REACHABLE ADJACENT MAP",
     mandatory_progression: "PROGRESSION FALLBACK"
   };
+  const kickerLabels = {
+    same_map_manhattan_distance: "NEAREST SAME-MAP CANDIDATE",
+    connected_map_entry_coordinate_heuristic: "NEAREST ADJACENT-MAP CANDIDATE",
+    mandatory_progression: "MANDATORY PROGRESSION TRAINER",
+  };
   $("objectiveArea").textContent = objective ? objective.location_name.toUpperCase() : "HALL OF FAME";
   $("objectiveName").textContent = objective ? objective.boss.toUpperCase() : "RUN COMPLETE";
   $("trainerName").textContent = trainer ? trainer.trainer_class.toUpperCase() : "NO UNDEFEATED TRAINER";
+  $("trainerKicker").textContent = trainer ? (kickerLabels[trainer.selection_basis] || "UNDEFEATED TRAINER") : "NO TRAINER AVAILABLE";
   $("trainerPosition").textContent = trainer ? `${basisLabels[trainer.selection_basis] || "KNOWN TRAINER"} · ${trainer.map_name} · (${trainer.x}, ${trainer.y})` : "—";
   $("partyHighest").textContent = data.party.length ? Math.max(...data.party.map(mon => mon.level)) : "—";
   $("trainerHighest").textContent = trainer?.party?.length ? Math.max(...trainer.party.map(mon => mon.level)) : "—";
