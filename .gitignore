@@ -10,9 +10,12 @@ venv/
 *.sav
 *.srm
 
+# These two sanitized/untrusted binary fixtures are required by the automated
+# parser and backend tests. All user/emulator saves remain ignored elsewhere.
+!tests/fixtures/*.sav
+
 # Local tooling and temporary files.
 .tmp_*/
 *.log
 .DS_Store
 Thumbs.db
-

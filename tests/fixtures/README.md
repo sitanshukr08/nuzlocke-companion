@@ -1,5 +1,9 @@
 # Save fixture provenance
 
+These two files are public regression fixtures required by the automated test
+suite. They are not player backups and must never be replaced with a user's
+personal save. They are parsed as untrusted input in CI.
+
 ## `pokemon_blue.sav`
 
 Early-game Pokémon Blue save used as the primary golden fixture. Its parsed
@@ -19,5 +23,4 @@ late-game coverage: all badges, one Hall of Fame entry, a full level-100 party,
 complete Pokédex flags, 456 set event bits, and 329 mapped defeated trainers.
 It may have been modified with a save editor and is not treated as evidence of
 a legitimate playthrough, a Nuzlocke run, encounter history, or field
-correctness independent of the parser. Do not publish or redistribute it
-without first establishing its original source and permission.
+correctness independent of the parser.
